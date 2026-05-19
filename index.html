@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Frigo Malin</title>
+<meta name="theme-color" content="#0f1117">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Frigo Malin">
+<style>
+:root{--bg:#0f1117;--surface:#1a1d27;--surface2:#22263a;--border:#2e3350;--accent:#4fffb0;--text:#e8eaf6;--muted:#6b7280;--ok:#4fffb0;--warn:#ffd166;--danger:#ff6b6b;--blue:#89b4fa}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 80% 50% at 10% 0%,rgba(79,255,176,.07) 0%,transparent 60%),radial-gradient(ellipse 60% 40% at 90% 100%,rgba(137,180,250,.05) 0%,transparent 60%);pointer-events:none;z-index:0}
+.app{position:relative;z-index:1;max-width:520px;margin:0 auto;padding:0 0 90px}
+header{padding:22px 18px 12px;display:flex;align-items:baseline;gap:10px}
+header h1{font-size:25px;font-weight:800;color:var(--accent)}
+header span{font-size:12px;color:var(--muted)}
+nav{display:flex;gap:6px;padding:0 16px 16px}
+nav button{flex:1;padding:10px 4px;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;color:var(--muted);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;transition:all .15s}
+nav button.active{background:var(--surface2);border-color:var(--accent);color:var(--accent)}
+.section{display:none;padding:0 14px}
+.section.active{display:block}
+.card{background:var(--surface);border:1.5px solid var(--border);border-radius:18px;padding:18px;margin-bottom:12px}
+.card-title{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px}
+
+/* SCANNER */
+#scanner-wrap{position:relative;border-radius:14px;overflow:hidden;background:#000;aspect-ratio:4/3;display:none;margin-bottom:12px}
+#scanner-wrap video{width:100%;height:100%;object-fit:cover;display:block}
+.scan-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.scan-frame{width:68%;height:44%;border:2.5px solid var(--accent);border-radius:10px;box-shadow:0 0 0 2000px rgba(0,0,0,.5);position:relative}
+.scan-line{position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);animation:scanline 2s ease-in-out infinite;top:0}
+@keyframes scanline{0%{top:0;opacity:0}10%{opacity:1}90%{opacity:1}100%{top:100%;opacity:0}}
+.btn-scan-start{width:100%;padding:20px 16px;margin-bottom:10px;background:linear-gradient(135deg,rgba(79,255,176,.13),rgba(79,255,176,.05));border:2px dashed rgba(79,255,176,.45);border-radius:16px;color:var(--accent);font-size:17px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:10px;transition:filter .15s}
+.btn-scan-start:active{filter:brightness(.8)}
+.scan-controls{display:flex;gap:8px;margin-bottom:10px}
+.btn-scan-stop{flex:1;padding:12px;background:rgba(255,107,107,.1);border:1.5px solid rgba(255,107,107,.3);border-radius:12px;color:var(--danger);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit}
+.btn-torch{padding:12px 20px;background:var(--surface2);border:1.5px solid var(--border);border-radius:12px;color:var(--text);font-size:18px;cursor:pointer;display:none;line-height:1}
+
+.scan-divider{display:flex;align-items:center;gap:10px;margin:14px 0 10px;color:var(--muted);font-size:12px}
+.scan-divider::before,.scan-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+.search-row{display:flex;gap:8px}
+.search-row input{flex:1}
+#status-msg{min-height:28px;font-size:13px;color:var(--muted);text-align:center;padding:6px 0 2px}
+#status-msg.ok{color:var(--accent)}
+#status-msg.err{color:var(--danger)}
+#status-msg.loading{color:var(--warn)}
+
+/* PRODUCT FOUND */
+.product-found{display:flex;align-items:center;gap:12px;background:var(--surface2);border-radius:12px;padding:12px;margin-bottom:14px;border:1.5px solid var(--border)}
+.product-found img{width:60px;height:60px;object-fit:contain;border-radius:8px;background:#fff;flex-shrink:0}
+.pf-icon{width:60px;height:60px;background:var(--surface);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0}
+.pname{font-weight:600;font-size:14px}
+.pbrand{font-size:12px;color:var(--muted);margin-top:2px}
+.pstatus{font-size:11px;margin-top:3px}
+
+/* FORM */
+.form-group{margin-bottom:13px}
+.field-label{display:block;font-size:11px;color:var(--muted);margin-bottom:5px;font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+.field-label span{color:var(--muted);font-weight:400;text-transform:none;font-size:10px;margin-left:4px}
+input[type=text],input[type=date],input[type=number],select{width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;color:var(--text);padding:11px 13px;font-family:inherit;font-size:15px;outline:none;transition:border-color .15s;-webkit-appearance:none;color-scheme:dark}
+input:focus,select:focus{border-color:var(--accent)}
+.btn{display:block;width:100%;padding:14px;border-radius:12px;font-family:inherit;font-size:15px;font-weight:600;cursor:pointer;border:none;text-align:center;transition:filter .15s}
+.btn+.btn{margin-top:8px}
+.btn-primary{background:var(--accent);color:#0a0e1a}
+.btn-primary:active{filter:brightness(.85)}
+.btn-secondary{background:var(--surface2);color:var(--text);border:1.5px solid var(--border)}
+.btn-warn{background:var(--warn);color:#0a0e1a}
+.btn-sm{padding:11px 14px;font-size:13px;border-radius:10px;width:auto;display:inline-block;font-family:inherit;font-weight:600;cursor:pointer;border:none;background:var(--accent);color:#0a0e1a;white-space:nowrap}
+
+/* ENTAME DIRECT */
+.entame-direct{background:rgba(255,209,102,.07);border:1.5px solid rgba(255,209,102,.3);border-radius:12px;padding:14px;margin-top:4px}
+.entame-direct-title{font-size:11px;font-weight:700;color:var(--warn);text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px}
+.entame-direct-row{display:flex;gap:8px;align-items:center}
+.entame-direct-row select{flex:1;font-size:13px}
+#entame-manual-wrap{display:none;margin-top:10px}
+
+/* STATS */
+.stats-row{display:flex;gap:8px;margin-bottom:14px}
+.stat-card{flex:1;background:var(--surface);border:1.5px solid var(--border);border-radius:14px;padding:13px 8px;text-align:center}
+.stat-num{font-size:26px;font-weight:800}
+.stat-label{font-size:11px;color:var(--muted);margin-top:2px}
+.filter-row{display:flex;gap:6px;margin-bottom:13px;flex-wrap:wrap}
+.fbtn{padding:7px 13px;border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;border:1.5px solid var(--border);background:var(--surface);color:var(--muted);font-family:inherit;transition:all .15s}
+.fbtn.active{border-color:var(--accent);color:var(--accent);background:var(--surface2)}
+
+/* LISTE PRODUITS */
+.pitem{background:var(--surface);border:1.5px solid var(--border);border-radius:16px;padding:14px;margin-bottom:9px;position:relative;display:flex;gap:12px;align-items:flex-start}
+.pitem-left{flex-shrink:0}
+.pitem-img{width:52px;height:52px;object-fit:contain;border-radius:8px;background:#fff;display:block}
+.pitem-icon{width:52px;height:52px;background:var(--surface2);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:22px}
+.pitem-bar{position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--ok);border-radius:4px 0 0 4px}
+.pitem.warn .pitem-bar{background:var(--warn)}
+.pitem.danger .pitem-bar{background:var(--danger)}
+.pitem.expired .pitem-bar{background:var(--muted)}
+.pitem.opened{border-color:rgba(255,209,102,.35)}
+.pitem-right{flex:1;min-width:0;padding-left:4px}
+.pi-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:5px}
+.pi-name{font-weight:700;font-size:15px;flex:1;min-width:0}
+.badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;white-space:nowrap;flex-shrink:0}
+.b-ok{background:rgba(79,255,176,.12);color:var(--ok)}
+.b-warn{background:rgba(255,209,102,.14);color:var(--warn)}
+.b-danger{background:rgba(255,107,107,.14);color:var(--danger)}
+.b-expired{background:rgba(107,114,128,.18);color:var(--muted)}
+.b-open{background:rgba(255,209,102,.14);color:var(--warn)}
+.pi-meta{font-size:12px;color:var(--muted);margin-bottom:10px;line-height:17px}
+.pi-actions{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+.btn-act{padding:8px 13px;font-size:12px;border-radius:9px;cursor:pointer;font-family:inherit;font-weight:600;border:1.5px solid;transition:all .15s}
+.btn-entame{background:rgba(255,209,102,.1);color:var(--warn);border-color:rgba(255,209,102,.35)}
+.btn-fermer{background:rgba(107,114,128,.1);color:var(--muted);border-color:var(--border)}
+.btn-consomme{background:rgba(79,255,176,.1);color:var(--ok);border-color:rgba(79,255,176,.3)}
+.btn-del-act{background:transparent;color:var(--muted);border-color:var(--border)}
+
+/* ALERTES */
+.abanner{border-radius:13px;padding:13px 15px;margin-bottom:10px;font-size:14px;border:1.5px solid;display:flex;gap:12px;align-items:center}
+.abanner.danger{background:rgba(255,107,107,.08);border-color:rgba(255,107,107,.3)}
+.abanner.warn{background:rgba(255,209,102,.07);border-color:rgba(255,209,102,.3)}
+.abanner-img-wrap{flex-shrink:0}
+.abanner strong{display:block;margin-bottom:3px;font-weight:700}
+.abanner .asub{font-size:12px;color:var(--muted);margin-top:5px}
+.stitle{font-size:13px;font-weight:700;margin-bottom:9px;padding:0 2px}
+
+.empty{text-align:center;padding:46px 16px;color:var(--muted)}
+.empty .emo{font-size:48px;display:block;margin-bottom:12px}
+.empty p{font-size:14px;line-height:1.6}
+#toast{position:fixed;bottom:72px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--surface2);border:1.5px solid var(--accent);color:var(--accent);padding:11px 20px;border-radius:40px;font-size:14px;font-weight:500;white-space:nowrap;opacity:0;pointer-events:none;transition:all .28s;z-index:100}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+<div class="app">
+  <header><h1>🧊 Frigo Malin</h1><span id="hdr-count"></span></header>
+  <nav>
+    <button class="active" id="nav-scan">➕ Ajouter</button>
+    <button id="nav-frigo">🧊 Mon frigo</button>
+    <button id="nav-alertes">🔔 Alertes</button>
+  </nav>
+
+  <div id="tab-scan" class="section active">
+    <div id="install-bar" class="install-bar" style="display:none">
+      <div><b>📲 Installer l'appli</b>Ajoute Frigo Malin sur ton ecran d'accueil.</div>
+      <button class="btn-install" id="btn-install">Installer</button>
+    </div>
+    <div class="card">
+      <div class="card-title">Scanner ou saisir un code-barres</div>
+      <div id="scanner-wrap">
+        <video id="video" autoplay muted playsinline></video>
+        <div class="scan-overlay"><div class="scan-frame"><div class="scan-line"></div></div></div>
+      </div>
+      <div class="scan-controls">
+        <button class="btn-scan-stop" id="btn-stop-scan" style="display:none">⏹ Arreter le scan</button>
+        <button class="btn-torch" id="btn-toggle-torch">💡</button>
+      </div>
+      <button class="btn-scan-start" id="btn-start-scan"><span>📷</span><span>Scanner avec la camera</span></button>
+      <div class="scan-divider">ou saisie manuelle</div>
+      <div class="search-row">
+        <input type="text" id="barcode-input" placeholder="Ex : 3017620422003" inputmode="numeric">
+        <button class="btn-sm" id="btn-search">🔍 Chercher</button>
+      </div>
+      <div id="status-msg">Scanne ou entre le code-barres</div>
+      <div style="margin-top:10px">
+        <button class="btn btn-secondary" id="btn-no-barcode" style="font-size:13px;padding:11px">➕ Ajouter sans code-barres</button>
+      </div>
+    </div>
+
+    <div id="product-form" style="display:none">
+      <div id="product-found-box"></div>
+      <div class="card">
+        <div class="card-title">Informations produit</div>
+        <div class="form-group">
+          <label class="field-label">Nom du produit</label>
+          <input type="text" id="prod-name" placeholder="Nom du produit">
+        </div>
+        <div class="form-group">
+          <label class="field-label">Date limite (DLC / DDM) <span>— optionnelle</span></label>
+          <input type="date" id="prod-dlc">
+        </div>
+        <div class="form-group">
+          <label class="field-label">Quantite</label>
+          <input type="number" id="prod-qty" value="1" min="1" max="99">
+        </div>
+        <div class="form-group">
+          <label class="field-label">Emplacement</label>
+          <select id="prod-loc">
+            <option value="frigo">🧊 Frigo</option>
+            <option value="congelateur">❄️ Congelateur</option>
+            <option value="placard">🗄️ Placard</option>
+          </select>
+        </div>
+
+        <div class="entame-direct">
+          <div class="entame-direct-title">🍴 Produit deja entame ?</div>
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <input type="checkbox" id="chk-entame" style="width:18px;height:18px;cursor:pointer;flex-shrink:0;accent-color:var(--warn)">
+            <label for="chk-entame" style="font-size:13px;color:var(--text);cursor:pointer">Oui, marquer comme entame maintenant</label>
+          </div>
+          <div id="entame-direct-opts" style="display:none">
+            <div class="entame-direct-row">
+              <select id="entame-dur-select">
+                <option value="1">1 jour — poisson cru, charcuterie</option>
+                <option value="2">2 jours — viande cuite, plats cuisines</option>
+                <option value="3">3 jours — fromage frais, yaourt</option>
+                <option value="5">5 jours — lait, jus de fruit</option>
+                <option value="7">1 semaine — fromage affine, beurre</option>
+                <option value="14">2 semaines — condiments, sauces</option>
+                <option value="30">1 mois — confitures, compotes</option>
+                <option value="90">3 mois — huiles, vinaigres</option>
+                <option value="0">✏ Saisir manuellement...</option>
+              </select>
+            </div>
+            <div id="entame-manual-wrap" style="display:none;margin-top:10px">
+              <label class="field-label">Nombre de jours</label>
+              <input type="number" id="entame-manual-input" min="1" max="365" placeholder="ex : 4">
+            </div>
+          </div>
+        </div>
+
+        <button class="btn btn-primary" id="btn-add" style="margin-top:14px">✅ Ajouter au frigo</button>
+        <button class="btn btn-secondary" id="btn-cancel">✕ Annuler</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-frigo" class="section">
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-num" id="s-total">0</div><div class="stat-label">Produits</div></div>
+      <div class="stat-card"><div class="stat-num" id="s-urgent" style="color:var(--danger)">0</div><div class="stat-label">Urgents</div></div>
+      <div class="stat-card"><div class="stat-num" id="s-open" style="color:var(--warn)">0</div><div class="stat-label">Entames</div></div>
+    </div>
+    <div class="filter-row">
+      <button class="fbtn active" id="f-all">Tous</button>
+      <button class="fbtn" id="f-frigo">🧊 Frigo</button>
+      <button class="fbtn" id="f-congelateur">❄️ Congelo</button>
+      <button class="fbtn" id="f-placard">🗄️ Placard</button>
+    </div>
+    <div id="product-list"></div>
+  </div>
+
+  <div id="tab-alertes" class="section">
+    <div id="alertes-list"></div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+var fsUrl = "https://firestore.googleapis.com/v1/projects/frigo-malin-8c931/databases/(default)/documents/products";
+var products=[], currentBarcode='', currentProdData=null, currentFilter='all';
+var scanStream=null, scanInterval=null, isTorchOn=false;
+
+function parseFirestoreFields(fields) {
+  var obj = {};
+  for (var key in fields) {
+    var valObj = fields[key];
+    if (valObj.stringValue !== undefined) obj[key] = valObj.stringValue;
+    else if (valObj.integerValue !== undefined) obj[key] = parseInt(valObj.integerValue);
+    else if (valObj.booleanValue !== undefined) obj[key] = valObj.booleanValue;
+    else if (valObj.nullValue !== undefined || valObj.nullValue === null) obj[key] = null;
+  }
+  return obj;
+}
+
+function buildFirestoreFields(obj) {
+  var fields = {};
+  for (var key in obj) {
+    if (obj[key] === null || obj[key] === undefined) fields[key] = { nullValue: null };
+    else if (typeof obj[key] === 'boolean') fields[key] = { booleanValue: obj[key] };
+    else if (typeof obj[key] === 'number') fields[key] = { integerValue: obj[key].toString() };
+    else fields[key] = { stringValue: obj[key].toString() };
+  }
+  return fields;
+}
+
+function loadFirebaseData() {
+  fetch(fsUrl)
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+      products = [];
+      if(data && data.documents) {
+        data.documents.forEach(function(doc) {
+          var nameParts = doc.name.split('/');
+          var id = nameParts[nameParts.length - 1];
+          if(doc.fields) {
+            var p = parseFirestoreFields(doc.fields);
+            p.id = id;
+            products.push(p);
+          }
+        });
+      }
+      updateHdr();
+      if(document.getElementById('tab-frigo').classList.contains('active')) renderList();
+      if(document.getElementById('tab-alertes').classList.contains('active')) renderAlertes();
+    })
+    .catch(function(err) { console.log("Erreur synchro Firestore:", err); });
+}
+
+loadFirebaseData();
+
+function saveProductFirebase(p){
+  var id = p.id;
+  var fields = buildFirestoreFields(p);
+  fetch(fsUrl + '/' + id + '?updateMask.fieldPaths=name&updateMask.fieldPaths=barcode&updateMask.fieldPaths=dlc&updateMask.fieldPaths=qty&updateMask.fieldPaths=loc&updateMask.fieldPaths=added&updateMask.fieldPaths=opened&updateMask.fieldPaths=openedDate&updateMask.fieldPaths=openedDuration&updateMask.fieldPaths=image', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fields: fields })
+  }).then(function() { 
+    loadFirebaseData();
+  });
+}
+
+function deleteProductFirebase(id){
+  fetch(fsUrl + '/' + id, {
+    method: 'DELETE'
+  }).then(function() { 
+    loadFirebaseData();
+  });
+}
+
+function uid(){return Date.now().toString(36)+Math.random().toString(36).substr(2,5)}
+function today(){return new Date().toISOString().substr(0,10)}
+function fmt(s){if(!s)return '—';var d=s.split('-');return d.length===3?d[2]+'/'+d[1]+'/'+d[0]:s}
+function cap(s){return s?s.charAt(0).toUpperCase()+s.slice(1):''}
+function esc(s){if(!s)return '';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function setStatus(cls,msg){if(msg===undefined){msg=cls;cls=''}var el=document.getElementById('status-msg');el.className=cls||'';el.textContent=msg||''}
+function toast(msg,col){var t=document.getElementById('toast');t.textContent=msg;t.style.borderColor=col||'var(--accent)';t.style.color=col||'var(--accent)';t.classList.add('show');setTimeout(function(){t.classList.remove('show')},3000)}
+
+// NAV
+document.getElementById('nav-scan').addEventListener('click',function(){showTab('scan')});
+document.getElementById('nav-frigo').addEventListener('click',function(){showTab('frigo')});
+document.getElementById('nav-alertes').addEventListener('click',function(){showTab('alertes')});
+function showTab(name){
+  document.querySelectorAll('.section').forEach(function(s){s.classList.remove('active')});
+  ['scan','frigo','alertes'].forEach(function(n){document.getElementById('nav-'+n).classList.remove('active')});
+  document.getElementById('tab-'+name).classList.add('active');
+  document.getElementById('nav-'+name).classList.add('active');
+  if(name==='frigo') renderList();
+  if(name==='alertes') renderAlertes();
+  if(name!=='scan') stopScan();
+}
+
+// SCANNER + TORCHE (CORRIGÉ & VALIDÉ POUR CHROME)
+document.getElementById('btn-start-scan').addEventListener('click',startScan);
+document.getElementById('btn-stop-scan').addEventListener('click',stopScan);
+document.getElementById('btn-toggle-torch').addEventListener('click',toggleTorch);
+
+function startScan(){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){setStatus('err','Camera non accessible.');return}
+  setStatus('loading','Demarrage de la camera...');
+  isTorchOn = false;
+  document.getElementById('btn-toggle-torch').style.display = 'none';
+
+  navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1280},height:{ideal:720}}})
+    .then(function(stream){
+      scanStream=stream;var video=document.getElementById('video');video.srcObject=stream;video.play();
+      document.getElementById('scanner-wrap').style.display='block';
+      document.getElementById('btn-start-scan').style.display='none';
+      document.getElementById('btn-stop-scan').style.display='block';
+      
+      // Laisser 300ms à Chrome pour initialiser le flux et lire les capacités matérielles
+      setTimeout(function(){
+        if(!scanStream) return;
+        var track = scanStream.getVideoTracks()[0];
+        if(track.getCapabilities && track.getCapabilities().torch) {
+          document.getElementById('btn-toggle-torch').style.display = 'block';
+          document.getElementById('btn-toggle-torch').style.background = 'var(--surface2)';
+          document.getElementById('btn-toggle-torch').style.color = 'var(--text)';
+        }
+      }, 300);
+
+      setStatus('','Pointez vers le code-barres...');startDetection(video);
+    }).catch(function(e){setStatus('err','Camera refusee : '+e.message)});
+}
+
+function stopScan(){
+  if(scanStream){
+    scanStream.getTracks().forEach(function(t){t.stop()});
+    scanStream=null;
+  }
+  if(scanInterval){clearInterval(scanInterval);scanInterval=null}
+  document.getElementById('scanner-wrap').style.display='none';
+  document.getElementById('btn-start-scan').style.display='flex';
+  document.getElementById('btn-stop-scan').style.display='none';
+  document.getElementById('btn-toggle-torch').style.display='none';
+  isTorchOn = false;
+}
+
+function toggleTorch(){
+  if(!scanStream) return;
+  var track = scanStream.getVideoTracks()[0];
+  if(track.getCapabilities && track.getCapabilities().torch) {
+    isTorchOn = !isTorchOn;
+    track.applyConstraints({advanced: [{torch: isTorchOn}]})
+      .then(function() {
+        document.getElementById('btn-toggle-torch').style.background = isTorchOn ? 'var(--warn)' : 'var(--surface2)';
+        document.getElementById('btn-toggle-torch').style.color = isTorchOn ? '#0a0e1a' : 'var(--text)';
+      }).catch(function(err) {
+        console.log("Impossible d'activer la torche:", err);
+      });
+  }
+}
+
+function startDetection(video){
+  if(!window.BarcodeDetector){setStatus('err','Saisie manuelle preferée.');stopScan();return}
+  var detector=new BarcodeDetector({formats:['ean_13','ean_8','upc_a','upc_e']});
+  scanInterval=setInterval(function(){
+    if(video.readyState<2)return;
+    detector.detect(video).then(function(codes){
+      if(codes.length>0){stopScan();var code=codes[0].rawValue;setStatus('ok','Code detecte : '+code);document.getElementById('barcode-input').value=code;lookupBarcode(code);}
+    }).catch(function(){});
+  },400);
+}
+
+document.getElementById('chk-entame').addEventListener('change',function(){document.getElementById('entame-direct-opts').style.display=this.checked?'block':'none';});
+document.getElementById('entame-dur-select').addEventListener('change',function(){document.getElementById('entame-manual-wrap').style.display=this.value==='0'?'block':'none';});
+
+// SEARCH
+document.getElementById('btn-search').addEventListener('click',function(){
+  var code=document.getElementById('barcode-input').value.trim().replace(/\s/g,'');
+  if(!code){setStatus('err','Entre un code-barres');return}
+  lookupBarcode(code);
+});
+document.getElementById('barcode-input').addEventListener('keydown',function(e){if(e.key==='Enter'){var code=this.value.trim();if(code)lookupBarcode(code)}});
+document.getElementById('btn-no-barcode').addEventListener('click',function(){
+  currentBarcode='';currentProdData=null;document.getElementById('product-found-box').innerHTML='';showForm();setStatus('','Saisis les informations du produit');
+});
+
+function lookupBarcode(code){
+  currentBarcode=code;setStatus('loading','Recherche...');
+  var xhr=new XMLHttpRequest();
+  xhr.open('GET','https://world.openfoodfacts.org/api/v0/product/'+code+'.json',true);
+  xhr.onreadystatechange=function(){
+    if(xhr.readyState!==4)return;
+    if(xhr.status===200){try{var d=JSON.parse(xhr.responseText);if(d.status===1)onFound(d.product,code);else onNotFound(code)}catch(e){onNotFound(code)}}else onNotFound(code);
+  };
+  xhr.send();
+}
+function onFound(p,code){
+  currentProdData=p;var name=p.product_name_fr||p.product_name||'',brand=p.brands||'',image=p.image_small_url||p.image_url||'';
+  document.getElementById('prod-name').value=name||code;
+  var imgTag=image?'<img src="'+esc(image)+'">':'<div class="pf-icon">🛒</div>';
+  document.getElementById('product-found-box').innerHTML='<div class="product-found">'+imgTag+'<div style="min-width:0"><div class="pname">'+esc(name||code)+'</div><div class="pbrand">'+esc(brand)+'</div><div class="pstatus" style="color:var(--accent)">✓ Trouve</div></div></div>';
+  showForm();setStatus('ok','Produit trouve !');
+}
+function onNotFound(code){
+  currentProdData=null;document.getElementById('prod-name').value='';
+  document.getElementById('product-found-box').innerHTML='<div class="product-found" style="border-color:rgba(255,209,102,.3)"><div class="pf-icon">❓</div><div><div class="pname">Produit inconnu</div><div class="pbrand">Code : '+esc(code)+'</div></div></div>';
+  showForm();setStatus('');
+}
+function showForm(){document.getElementById('product-form').style.display='block';}
+
+// FORM ADD
+document.getElementById('btn-add').addEventListener('click',function(){
+  var name=document.getElementById('prod-name').value.trim();
+  var dlc=document.getElementById('prod-dlc').value;
+  var qty=parseInt(document.getElementById('prod-qty').value)||1;
+  var loc=document.getElementById('prod-loc').value;
+  if(!name){toast('⚠ Entre le nom du produit','var(--warn)');return}
+  var chk=document.getElementById('chk-entame').checked, openedDur=null;
+  if(chk){
+    var sel=document.getElementById('entame-dur-select');
+    openedDur=sel.value==='0'?parseInt(document.getElementById('entame-manual-input').value):parseInt(sel.value);
+  }
+  var prod={
+    name:name,barcode:currentBarcode,dlc:dlc||null,qty:qty,loc:loc||'frigo',added:today(),
+    opened:chk,openedDate:chk?today():null,openedDuration:openedDur,
+    image:currentProdData?(currentProdData.image_small_url||currentProdData.image_url||''):''
+  };
+  prod.id = uid();
+  saveProductFirebase(prod);
+  resetForm();toast('✅ '+name+' ajoute !');showTab('frigo');
+});
+document.getElementById('btn-cancel').addEventListener('click',resetForm);
+function resetForm(){
+  document.getElementById('product-form').style.display='none';document.getElementById('product-found-box').innerHTML='';
+  document.getElementById('prod-name').value='';document.getElementById('prod-dlc').value='';document.getElementById('prod-qty').value='1';
+  document.getElementById('barcode-input').value='';document.getElementById('chk-entame').checked=false;
+  document.getElementById('entame-direct-opts').style.display='none';currentBarcode='';currentProdData=null;setStatus('Scanne ou entre le code-barres');
+}
+
+// CALCS
+function daysLeft(p){
+  var t=new Date();t.setHours(0,0,0,0);
+  if(p.opened && p.openedDate && p.openedDuration){
+    var od=new Date(p.openedDate);od.setHours(0,0,0,0);var lO=new Date(od);lO.setDate(lO.getDate()+p.openedDuration);
+    if(p.dlc){var lD=new Date(p.dlc);lD.setHours(0,0,0,0);return Math.round(((lO<lD?lO:lD)-t)/86400000)}
+    return Math.round((lO-t)/86400000);
+  }
+  if(!p.dlc)return 9999;
+  var dlc=new Date(p.dlc);dlc.setHours(0,0,0,0);return Math.round((dlc-t)/86400000);
+}
+function statusOf(p){
+  var d=daysLeft(p);
+  if(p.opened){
+    if(d!=='undefined'&&d<=0)return{cls:'danger opened',badge:'b-danger',label:'🔴 A finir !',days:d};
+    if(d===1)return{cls:'opened',badge:'b-open',label:'Dernier jour !',days:d};
+    return{cls:'opened',badge:'b-open',label:'🍴 '+d+'j restants',days:d};
+  }
+  if(d===9999)return{cls:'',badge:'b-ok',label:'Sans DLC',days:d};
+  if(d<0)return{cls:'expired',badge:'b-expired',label:'Perime ('+Math.abs(d)+'j)',days:d};
+  if(d===0)return{cls:'danger',badge:'b-danger',label:"Aujourd'hui !",days:d};
+  if(d<=3)return{cls:'danger',badge:'b-danger',label:d+'j',days:d};
+  return{cls:'',badge:'b-ok',label:d+'j',days:d};
+}
+
+// RENDER LIST
+document.getElementById('f-all').addEventListener('click',function(){setFilter('all')});
+document.getElementById('f-frigo').addEventListener('click',function(){setFilter('frigo')});
+document.getElementById('f-congelateur').addEventListener('click',function(){setFilter('congelateur')});
+document.getElementById('f-placard').addEventListener('click',function(){setFilter('placard')});
+function setFilter(f){currentFilter=f;document.querySelectorAll('.fbtn').forEach(function(b){b.classList.remove('active')});document.getElementById('f-'+f).classList.add('active');renderList();}
+
+function renderList(){
+  var el=document.getElementById('product-list');
+  var list=products.filter(function(p){return currentFilter==='all' || p.loc===currentFilter});
+  list.sort(function(a,b){return daysLeft(a)-daysLeft(b)});
+  if(list.length===0){el.innerHTML='<div class="empty"><span class="emo">🧊</span><p>Aucun produit.</p></div>';updateStats(list);return}
+  var html='';
+  for(var i=0;i<list.length;i++){
+    var p=list[i],st=statusOf(p);var locIcon={frigo:'🧊',congelateur:'❄️',placard:'🗄️'}[p.loc]||'🧊';
+    var imgHtml=p.image?'<img class="pitem-img" src="'+esc(p.image)+'">':'<div class="pitem-icon">'+locIcon+'</div>';
+    html+='<div class="pitem '+st.cls+'" id="pitem-'+p.id+'"><div class="pitem-bar"></div><div class="pitem-left">'+imgHtml+'</div><div class="pitem-right">';
+    html+='<div class="pi-top"><div class="pi-name">'+esc(p.name || 'Produit sans nom')+'</div><span class="badge '+st.badge+'">'+st.label+'</span></div>';
+    html+='<div class="pi-meta">'+locIcon+' '+cap(p.loc || 'frigo')+' · DLC : '+fmt(p.dlc)+(p.qty>1?' · x'+p.qty:'')+'</div>';
+    html+='<div class="pi-actions">';
+    if(!p.opened)html+='<button class="btn-act btn-entame" data-id="'+p.id+'" data-act="entame">🍴 Entame</button>';
+    else         html+='<button class="btn-act btn-fermer" data-id="'+p.id+'" data-act="fermer">📦 Refermer</button>';
+    html+='<button class="btn-act btn-consomme" data-id="'+p.id+'" data-act="fini">✅ Fini</button>';
+    html+='<button class="btn-act btn-del-act"  data-id="'+p.id+'" data-act="del">🗑</button>';
+    html+='</div></div></div>';
+  }
+  el.innerHTML=html;
+  el.querySelectorAll('.btn-act').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var id=this.getAttribute('data-id'),act=this.getAttribute('data-act');
+      if(act==='entame')showEntameModal(id);
+      else if(act==='fermer')closeProduct(id);
+      else if(act==='fini')finishProduct(id);
+      else if(act==='del')deleteProduct(id);
+    });
+  });
+  updateStats(list);
+}
+
+function showEntameModal(id){
+  var p=products.find(function(x){return x.id===id});if(!p)return;
+  p.opened=true;p.openedDate=today();p.openedDuration=3;saveProductFirebase(p);toast('🍴 Marque comme entame (3j)');
+}
+function closeProduct(id){var p=products.find(function(x){return x.id===id});if(!p)return;p.opened=false;p.openedDate=null;p.openedDuration=null;saveProductFirebase(p);}
+function finishProduct(id){toast('✅ Consomme !');deleteProductFirebase(id);}
+function deleteProduct(id){if(confirm('Supprimer ?'))deleteProductFirebase(id);}
+
+function renderAlertes(){
+  var el=document.getElementById('alertes-list');
+  var allAlerts = [];
+
+  products.forEach(function(p){
+    var st=statusOf(p);
+    if(p.opened || st.days < 0 || st.days <= 4) {
+      allAlerts.push({p: p, st: st, days: st.days});
+    }
+  });
+
+  allAlerts.sort(function(a, b) { return a.days - b.days; });
+
+  if(allAlerts.length > 0){
+    var html = '<div class="stitle" style="color:var(--warn)">⚠️ Attention — Par ordre d\'urgence</div>';
+    
+    allAlerts.forEach(function(item) {
+      var p = item.p;
+      var st = item.st;
+      var locIcon = {frigo:'🧊',congelateur:'❄️',placard:'🗄️'}[p.loc]||'🧊';
+      
+      var bannerClass = "warn";
+      if(item.days <= 0) {
+        bannerClass = "danger";
+      }
+
+      var imgHtml = p.image ? '<img class="pitem-img" src="'+esc(p.image)+'" style="width:42px; height:42px;">' : '<div class="pitem-icon" style="width:42px; height:42px; font-size:18px;">'+locIcon+'</div>';
+
+      var descTxt = "";
+      if(p.opened) {
+        descTxt = "Entamé le " + fmt(p.openedDate);
+        if(item.days < 0) descTxt += " — 🔴 Durée maximale dépassée de " + Math.abs(item.days) + "j !";
+        else if(item.days === 0) descTxt += " — 🔴 À finir impérativement aujourd'hui !";
+        else if(item.days === 1) descTxt += " — <strong>Dernier jour !</strong>";
+        else descTxt += " — " + item.days + "j restants";
+      } else {
+        if(item.days < 0) descTxt = "Périmé depuis " + Math.abs(item.days) + "j (DLC : " + fmt(p.dlc) + ")";
+        else if(item.days === 0) descTxt = "🔴 Expire AUJOURD'HUI ! (DLC : " + fmt(p.dlc) + ")";
+        else if(item.days === 1) descTxt = "Expire demain (DLC : " + fmt(p.dlc) + ")";
+        else descTxt = "Expire dans " + item.days + " jours (DLC : " + fmt(p.dlc) + ")";
+      }
+
+      html += '<div class="abanner ' + bannerClass + '">';
+      html += '  <div class="abanner-img-wrap">' + imgHtml + '</div>';
+      html += '  <div style="min-width:0; flex:1;">';
+      html += '    <strong>' + esc(p.name) + '</strong>';
+      html += '    <div style="font-size:12px; opacity:0.85; margin-top:2px;">' + descTxt + '</div>';
+      html += '  </div>';
+      html += '</div>';
+    });
+
+    el.innerHTML = html;
+  } else {
+    el.innerHTML = '<div class="empty"><span class="emo">✅</span><p>Aucune alerte.</p></div>';
+  }
+}
+
+function updateStats(list){
+  document.getElementById('s-total').textContent=products.length;
+  document.getElementById('s-urgent').textContent=products.filter(function(p){var d=daysLeft(p);return d<=3&&d!==9999&&!p.opened}).length;
+  document.getElementById('s-open').textContent=products.filter(function(p){return p.opened}).length;
+}
+function updateHdr(){document.getElementById('hdr-count').textContent=products.length?products.length+' produit'+(products.length>1?'s':''):'';}
+
+updateHdr();
+</script>
+</body>
+</html>
